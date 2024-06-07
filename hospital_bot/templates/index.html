@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Management Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-box"></div>
+        <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        let chatState = {};
+
+        function sendMessage() {
+            let userInput = document.getElementById('user-input').value;
+            document.getElementById('user-input').value = '';
+            let chatBox = document.getElementById('chat-box');
+            let userMessage = document.createElement('div');
+            userMessage.className = 'user-message';
+            userMessage.innerText = userInput;
+            chatBox.appendChild(userMessage);
+
+            processInput(userInput);
+        }
+
+        function processInput(input) {
+            let response = '';
+            const inputLower = input.toLowerCase();
+
+            if (inputLower.includes('add patient') || inputLower.includes('register patient')) {
+                chatState = { action: 'add_patient' };
+                response = 'Please provide the patient details (name, age, gender, contact) separated by commas:';
+            } else if (inputLower.includes('schedule appointment') || inputLower.includes('make appointment') || inputLower.includes('meet doctor') || inputLower.includes('consult doctor')) {
+                chatState = { action: 'schedule_appointment' };
+                response = 'Please provide the appointment details (patient_id, doctor, date, time, reason) separated by commas:';
+            } else if (chatState.action === 'add_patient') {
+                let [name, age, gender, contact] = input.split(',');
+                fetch('/add_patient', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: name.trim(), age: parseInt(age.trim()), gender: gender.trim(), contact: contact.trim() })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    response = data.message;
+                    displayBotMessage(response);
+                });
+                chatState = {};
+            } else if (chatState.action === 'schedule_appointment') {
+                let [patient_id, doctor, date, time, reason] = input.split(',');
+                fetch('/schedule_appointment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ patient_id: parseInt(patient_id.trim()), doctor: doctor.trim(), date: date.trim(), time: time.trim(), reason: reason.trim() })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    response = data.message;
+                    displayBotMessage(response);
+                });
+                chatState = {};
+            } else if (inputLower.includes('show patients') || inputLower.includes('list patients')) {
+                fetch('/get_patients')
+                .then(response => response.json())
+                .then(data => {
+                    response = 'Patients:\n' + data.map(p => `ID: ${p[0]}, Name: ${p[1]}, Age: ${p[2]}, Gender: ${p[3]}, Contact: ${p[4]}`).join('\n');
+                    displayBotMessage(response);
+                });
+            } else if (inputLower.includes('show appointments') || inputLower.includes('list appointments')) {
+                fetch('/get_appointments')
+                .then(response => response.json())
+                .then(data => {
+                    response = 'Appointments:\n' + data.map(a => `ID: ${a[0]}, Patient ID: ${a[1]}, Doctor: ${a[2]}, Date: ${a[3]}, Time: ${a[4]}, Reason: ${a[5]}`).join('\n');
+                    displayBotMessage(response);
+                });
+            } else {
+                response = "I'm sorry, I didn't understand that. You can try commands like 'add patient', 'schedule appointment', 'show patients', or 'show appointments'.";
+                displayBotMessage(response);
+            }
+        }
+
+        function displayBotMessage(message) {
+            let chatBox = document.getElementById('chat-box');
+            let botMessage = document.createElement('div');
+            botMessage.className = 'bot-message';
+            botMessage.innerText = message;
+            chatBox.appendChild(botMessage);
+        }
+    </script>
+</body>
+</html>
